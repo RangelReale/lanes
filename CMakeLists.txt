@@ -1,58 +1,62 @@
-# Copyright (C) 2007-2009 LuaDist.
-# Created by Peter Kapec
+# Copyright (C) 2007-2012 LuaDist.
+# Created by Peter Kapec, David Manura
 # Redistribution and use of this file is allowed according to the terms of the MIT license.
 # For details see the COPYRIGHT file distributed with LuaDist.
 # Please note that the package source code is licensed under its own license.
 
-PROJECT(lanes C)
-CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
-INCLUDE(dist.cmake)
+project ( lanes C )
+cmake_minimum_required ( VERSION 2.6 )
+include ( dist.cmake )
 
-FIND_PACKAGE(Lua51 REQUIRED)
-FIND_PROGRAM(LUA NAMES lua5.1 lua51 lua)
-FIND_PROGRAM(LUAC NAMES luac5.1 luac51 luac)
-INCLUDE_DIRECTORIES(${LUA_INCLUDE_DIR})
-
-#2DO - patch threading.c to suppot cygwin.
+#2DO - patch threading.c to support cygwin.
 # The following values are just a guess.
 # WARNING: test segfault under Cygwin
-IF(CYGWIN)
-  ADD_DEFINITIONS(-D_PRIO_MODE=SCHED_FIFO)
-  ADD_DEFINITIONS(-D_PRIO_HI=15) # maximum that doesn't crash
-  ADD_DEFINITIONS(-D_PRIO_0=0)
-  ADD_DEFINITIONS(-D_PRIO_LO=-15) # ???
-  ADD_DEFINITIONS(-Dpthread_yield=sched_yield)
-ENDIF(CYGWIN)
+if ( CYGWIN )
+  add_definitions ( -D_PRIO_MODE=SCHED_FIFO )
+  add_definitions ( -D_PRIO_HI=15 ) # maximum that doesn't crash
+  add_definitions ( -D_PRIO_0=0 )
+  add_definitions ( -D_PRIO_LO=-15 ) # ???
+  add_definitions ( -Dpthread_yield=sched_yield )
+endif()
 
-#2DO - use provided bin2c
-# Embed keeper.lua in text form in C (embedding bytecode is not LuaJIT2-compatible)
-ADD_CUSTOM_COMMAND(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/keeper.lch
+#2DO: do this from dist.cmake instead.
+# Embed keeper.lua in text form in C (embedding bytecode may not LuaJIT2-compatible)
+find_program ( LUA NAMES lua lua.bat )
+add_custom_command ( OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/keeper.lch
   DEPENDS src/keeper.lua
-    COMMAND "${LUA}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/bin2c.lua"
-            "${CMAKE_CURRENT_SOURCE_DIR}/src/keeper.lua"
-            "-o" "${CMAKE_CURRENT_BINARY_DIR}/keeper.lch")
-SET_SOURCE_FILES_PROPERTIES(src/lanes.c PROPERTIES OBJECT_DEPENDS
-  ${CMAKE_CURRENT_BINARY_DIR}/keeper.lch)
-INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
+  COMMAND "${LUA}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/bin2c.lua"
+          "${CMAKE_CURRENT_SOURCE_DIR}/src/keeper.lua"
+          "-o" "${CMAKE_CURRENT_BINARY_DIR}/keeper.lch")
+set_source_files_properties ( src/lanes.c PROPERTIES OBJECT_DEPENDS
+  ${CMAKE_CURRENT_BINARY_DIR}/keeper.lch )
+include_directories ( ${CMAKE_CURRENT_BINARY_DIR} )
 
+install_lua_module ( lua51-lanes src/lanes.c src/threading.c src/tools.c src/keeper.c )
+if ( UNIX AND NOT CYGWIN )
+  set ( LIBS pthread )
+endif()
+target_link_libraries ( lua51-lanes ${LUA_LIBRARY} ${LIBS} )
 
-# Build
-INCLUDE_DIRECTORIES(src)
-ADD_LIBRARY(lua51-lanes MODULE src/lanes.c src/threading.c src/tools.c src/keeper.c)
+install_lua_module ( lanes src/lanes.lua )
 
-IF(UNIX AND NOT CYGWIN)
-  SET(LIBS pthread)
-ENDIF(UNIX AND NOT CYGWIN)
+install_data ( ABOUT BUGS COPYRIGHT CHANGES README TODO  )
+install_doc ( docs/ )
+install_test ( tests/ )
 
-
-
-TARGET_LINK_LIBRARIES(lua51-lanes ${LUA_LIBRARY} ${LIBS})
-SET_TARGET_PROPERTIES(lua51-lanes PROPERTIES PREFIX "")
-
-# Install all files and documentation
-INSTALL (TARGETS lua51-lanes DESTINATION ${INSTALL_CMOD})
-INSTALL (FILES src/lanes.lua DESTINATION ${INSTALL_LMOD})
-
-INSTALL (FILES ABOUT BUGS COPYRIGHT CHANGES README TODO DESTINATION ${INSTALL_DATA})
-INSTALL (DIRECTORY docs/ DESTINATION ${INSTALL_DOC})
-INSTALL (DIRECTORY tests/ DESTINATION ${INSTALL_TEST})
+#2DO: these hang on Ubuntu
+configure_file ( src/lanes.lua ${CMAKE_CURRENT_BINARY_DIR}/lanes.lua ) # for testing
+#add_lua_test ( tests/errhangtest.lua )
+#add_lua_test ( tests/irayo_recursive.lua )
+#add_lua_test ( tests/irayo_closure.lua )
+#add_lua_test ( tests/basic.lua )
+#add_lua_test ( tests/fifo.lua )
+#add_lua_test ( tests/keeper.lua )
+#add_lua_test ( tests/timer.lua )
+#add_lua_test ( tests/atomic.lua )
+#add_lua_test ( tests/cyclic.lua )
+#add_lua_test ( tests/objects.lua )
+#add_lua_test ( tests/fibonacci.lua )
+#add_lua_test ( tests/recursive.lua )
+#add_lua_test ( tests/func_is_string.lua )
+#add_lua_test ( tests/atexit.lua )
+#add_lua_test ( tests/linda_perf.lua )
