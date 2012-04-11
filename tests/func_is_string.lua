@@ -1,4 +1,5 @@
-require "lanes"
+local lanes = require "lanes"
+lanes.configure()
 
 local options = {globals = { b = 666 }}
 

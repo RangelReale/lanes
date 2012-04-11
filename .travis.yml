@@ -7,16 +7,16 @@ language: erlang
 
 # Try using multiple Lua Implementations
 env:
-  - LUA=""             # Use automatic dependencies
-  - LUA="luajit"       # Try with LuaJIT
-# - CMAKE="-DCMAKE_VARIABLE=value"
-# - LUA="lua-5.1.5"
+  - LUA=""              # Use automatic dependencies
+  - LUA="luajit"        # Check with LuaJIT
+  - LUA="lua-5.2"       # Try with Lua 5.2 also
 
-# Allow luajit to fail
+# Allow Lua 5.2 based builds to fail
 matrix:
   allow_failures:
+    - env: LUA="lua-5.2"
     - env: LUA="luajit"
-
+      
 # We need CMake and LuaDist
 install:
   - export MODULE=`basename $PWD`
@@ -31,10 +31,6 @@ install:
 # Use LuaDist to deploy the module
 script:
   - $LUADIST _test install $LUA $MODULE-scm $CMAKE -verbose=true -test=true
-
-# Execute additional tests or commands
-#after_script:
-#  - [run additional test commans]
 
 # Only watch the master branch
 branches:
