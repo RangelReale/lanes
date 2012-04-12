@@ -6,7 +6,8 @@
 
 project ( lanes C )
 cmake_minimum_required ( VERSION 2.6 )
-include ( dist.cmake )
+include ( cmake/dist.cmake )
+include ( cmake/lua.cmake )
 
 #2DO - patch threading.c to support cygwin.
 # The following values are just a guess.
