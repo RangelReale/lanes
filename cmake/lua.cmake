@@ -29,177 +29,101 @@ macro ( _append_path basepath path result )
 endmacro ()
 
 # install_lua_executable ( target source )
-# Automatically generate a binary wrapper for lua application and install it
-# The wrapper and the source of the application will be placed into /bin
+# Automatically generate a binary if srlua package is available
+# The application or its source will be placed into /bin 
 # If the application source did not have .lua suffix then it will be added
 # USE: lua_executable ( sputnik src/sputnik.lua )
 macro ( install_lua_executable _name _source )
   get_filename_component ( _source_name ${_source} NAME_WE )
-  if ( NOT SKIP_LUA_WRAPPER )
-    enable_language ( C )
+  # Find srlua and glue
+  find_program( SRLUA_EXECUTABLE NAMES srlua )
+  find_program( GLUE_EXECUTABLE NAMES glue )
   
-    find_package ( Lua51 REQUIRED )
-    include_directories ( ${LUA_INCLUDE_DIR} )
-
-    set ( _wrapper ${CMAKE_CURRENT_BINARY_DIR}/${_name}.c )
-    set ( _code 
-"// Not so simple executable wrapper for Lua apps
-#include <stdio.h>
-#include <signal.h>
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
-
-lua_State *L\;
-
-static int getargs (lua_State *L, char **argv, int n) {
-int narg\;
-int i\;
-int argc = 0\;
-while (argv[argc]) argc++\;
-narg = argc - (n + 1)\;
-luaL_checkstack(L, narg + 3, \"too many arguments to script\")\;
-for (i=n+1\; i < argc\; i++)
-  lua_pushstring(L, argv[i])\;
-lua_createtable(L, narg, n + 1)\;
-for (i=0\; i < argc\; i++) {
-  lua_pushstring(L, argv[i])\;
-  lua_rawseti(L, -2, i - n)\;
-}
-return narg\;
-}
-
-static void lstop (lua_State *L, lua_Debug *ar) {
-(void)ar\;
-lua_sethook(L, NULL, 0, 0)\;
-luaL_error(L, \"interrupted!\")\;
-}
-
-static void laction (int i) {
-signal(i, SIG_DFL)\;
-lua_sethook(L, lstop, LUA_MASKCALL | LUA_MASKRET | LUA_MASKCOUNT, 1)\;
-}
-
-static void l_message (const char *pname, const char *msg) {
-if (pname) fprintf(stderr, \"%s: \", pname)\;
-fprintf(stderr, \"%s\\n\", msg)\;
-fflush(stderr)\;
-}
-
-static int report (lua_State *L, int status) {
-if (status && !lua_isnil(L, -1)) {
-  const char *msg = lua_tostring(L, -1)\;
-  if (msg == NULL) msg = \"(error object is not a string)\"\;
-  l_message(\"${_source_name}\", msg)\;
-  lua_pop(L, 1)\;
-}
-return status\;
-}
-
-static int traceback (lua_State *L) {
-if (!lua_isstring(L, 1))
-  return 1\;
-lua_getfield(L, LUA_GLOBALSINDEX, \"debug\")\;
-if (!lua_istable(L, -1)) {
-  lua_pop(L, 1)\;
-  return 1\;
-}
-lua_getfield(L, -1, \"traceback\")\;
-if (!lua_isfunction(L, -1)) {
-  lua_pop(L, 2)\;
-  return 1\;
-}
-lua_pushvalue(L, 1)\; 
-lua_pushinteger(L, 2)\;
-lua_call(L, 2, 1)\;
-return 1\;
-}
-
-static int docall (lua_State *L, int narg, int clear) {
-int status\;
-int base = lua_gettop(L) - narg\;
-lua_pushcfunction(L, traceback)\;
-lua_insert(L, base)\;
-signal(SIGINT, laction)\;
-status = lua_pcall(L, narg, (clear ? 0 : LUA_MULTRET), base)\;
-signal(SIGINT, SIG_DFL)\;
-lua_remove(L, base)\;
-if (status != 0) lua_gc(L, LUA_GCCOLLECT, 0)\;
-return status\;
-}
-
-int main (int argc, char **argv) {
-L=lua_open()\;
-lua_gc(L, LUA_GCSTOP, 0)\;
-luaL_openlibs(L)\;
-lua_gc(L, LUA_GCRESTART, 0)\;
-int narg = getargs(L, argv, 0)\;
-lua_setglobal(L, \"arg\")\;
-
-// Script
-char script[500] = \"./${_source_name}.lua\"\;
-lua_getglobal(L, \"_PROGDIR\")\;
-if (lua_isstring(L, -1)) {
-  sprintf( script, \"%s/${_source_name}.lua\", lua_tostring(L, -1))\;
-} 
-lua_pop(L, 1)\;
-
-// Run
-int status = luaL_loadfile(L, script)\;
-lua_insert(L, -(narg+1))\;
-if (status == 0)
-  status = docall(L, narg, 0)\;
-else
-  lua_pop(L, narg)\;
-
-report(L, status)\;
-lua_close(L)\;
-return status\;
-};
-")
-    file ( WRITE ${_wrapper} ${_code} )
-    add_executable ( ${_name} ${_wrapper} )
-    target_link_libraries ( ${_name} ${LUA_LIBRARY} )
-    install ( TARGETS ${_name} DESTINATION ${INSTALL_BIN} )
-  endif()
-  install ( PROGRAMS ${_source} DESTINATION ${INSTALL_BIN}
+  if ( NOT SKIP_LUA_WRAPPER AND SRLUA_EXECUTABLE AND GLUE_EXECUTABLE )
+    # Generate binary gluing the lua code to srlua
+    add_custom_command(
+      OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_name}
+      COMMAND ${GLUE_EXECUTABLE} 
+      ARGS ${SRLUA_EXECUTABLE} ${_source} ${CMAKE_CURRENT_BINARY_DIR}/${_name}
+      DEPENDS ${_source}
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      VERBATIM
+    )
+    # Make sure we have a target associated with the binary
+    add_custom_target(${_name} ALL
+        DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${_name}
+    )
+    # Install with run permissions
+    install ( PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/${_name} DESTINATION ${INSTALL_BIN} )
+  else()
+    # Add .lua suffix and install as is
+    install ( PROGRAMS ${_source} DESTINATION ${INSTALL_BIN}
             RENAME ${_source_name}.lua )
+  endif()
 endmacro ()
 
-macro ( _lua_module_helper is_install _name )
-  string ( REPLACE "." "/" _module "${_name}" )
-  string ( REPLACE "." "_" _target "${_name}" )
-  
-  set ( _lua_module "${_module}.lua" )
-  set ( _bin_module "${_module}${CMAKE_SHARED_MODULE_SUFFIX}" )
-  
-  parse_arguments ( _MODULE "LINK" "" ${ARGN} )
-  get_filename_component ( _ext ${ARGV2} EXT )
-  if ( _ext STREQUAL ".lua" )
-    get_filename_component ( _path ${_lua_module} PATH )
-    get_filename_component ( _filename ${_lua_module} NAME )
-    _append_path ( "${CMAKE_CURRENT_SOURCE_DIR}" "${ARGV2}" _module_path )
-    list ( APPEND _lua_modules "${_name}" "${_module_path}" )
-    if ( is_install )
-      install ( FILES ${ARGV2} DESTINATION ${INSTALL_LMOD}/${_module_path}
-                RENAME ${_filename} )
-    endif ()
+macro ( _lua_module_helper is_install _name ) 
+  parse_arguments ( _MODULE "LINK;ALL_IN_ONE" "" ${ARGN} )
+  # _target is CMake-compatible target name for module (e.g. socket_core).
+  # _module is relative path of target (e.g. socket/core),
+  #   without extension (e.g. .lua/.so/.dll).
+  # _MODULE_SRC is list of module source files (e.g. .lua and .c files).
+  # _MODULE_NAMES is list of module names (e.g. socket.core).
+  if ( _MODULE_ALL_IN_ONE )
+    string ( REGEX REPLACE "\\..*" "" _target "${_name}" )
+    string ( REGEX REPLACE "\\..*" "" _module "${_name}" )
+    set ( _target "${_target}_all_in_one")
+    set ( _MODULE_SRC ${_MODULE_ALL_IN_ONE} )
+    set ( _MODULE_NAMES ${_name} ${_MODULE_DEFAULT_ARGS} )
   else ()
+    string ( REPLACE "." "_" _target "${_name}" )
+    string ( REPLACE "." "/" _module "${_name}" )
+    set ( _MODULE_SRC ${_MODULE_DEFAULT_ARGS} )
+    set ( _MODULE_NAMES ${_name} )
+  endif ()
+  if ( NOT _MODULE_SRC )
+    message ( FATAL_ERROR "no module sources specified" )
+  endif ()
+  list ( GET _MODULE_SRC 0 _first_source )
+  
+  get_filename_component ( _ext ${_first_source} EXT )
+  if ( _ext STREQUAL ".lua" )  # Lua source module
+    list ( LENGTH _MODULE_SRC _len )
+    if ( _len GREATER 1 )
+      message ( FATAL_ERROR "more than one source file specified" )
+    endif ()
+  
+    set ( _module "${_module}.lua" )
+
+    get_filename_component ( _module_dir ${_module} PATH )
+    get_filename_component ( _module_filename ${_module} NAME )
+    _append_path ( "${CMAKE_CURRENT_SOURCE_DIR}" "${_first_source}" _module_path )
+    list ( APPEND _lua_modules "${_name}" "${_module_path}" )
+
+    if ( ${is_install} )
+      install ( FILES ${_first_source} DESTINATION ${INSTALL_LMOD}/${_module_dir}
+                RENAME ${_module_filename} )
+    endif ()
+  else ()  # Lua C binary module
     enable_language ( C )
-    get_filename_component ( _module_name ${_bin_module} NAME_WE )
-    get_filename_component ( _module_path ${_bin_module} PATH )
-     
-    find_package ( Lua51 REQUIRED )
+    find_package ( Lua REQUIRED )
     include_directories ( ${LUA_INCLUDE_DIR} )
+
+    set ( _module "${_module}${CMAKE_SHARED_MODULE_SUFFIX}" )
+
+    get_filename_component ( _module_dir ${_module} PATH )
+    get_filename_component ( _module_filenamebase ${_module} NAME_WE )
+    foreach ( _thisname ${_MODULE_NAMES} )
+      list ( APPEND _lua_modules "${_thisname}"
+             "${CMAKE_CURRENT_BINARY_DIR}/\${CMAKE_CFG_INTDIR}/${_module}" )
+    endforeach ()
    
-    add_library( ${_target} MODULE ${_MODULE_DEFAULT_ARGS})
+    add_library( ${_target} MODULE ${_MODULE_SRC})
     target_link_libraries ( ${_target} ${LUA_LIBRARY} ${_MODULE_LINK} )
     set_target_properties ( ${_target} PROPERTIES LIBRARY_OUTPUT_DIRECTORY
-                "${_module_path}" PREFIX "" OUTPUT_NAME "${_module_name}" )
-    list ( APPEND _lua_modules "${_name}"
-           "${CMAKE_CURRENT_BINARY_DIR}/\${CMAKE_CFG_INTDIR}/${_bin_module}" )
-    if ( is_install )
-      install ( TARGETS ${_target} DESTINATION ${INSTALL_CMOD}/${_module_path})
+                "${_module_dir}" PREFIX "" OUTPUT_NAME "${_module_filenamebase}" )
+    if ( ${is_install} )
+      install ( TARGETS ${_target} DESTINATION ${INSTALL_CMOD}/${_module_dir})
     endif ()
   endif ()
 endmacro ()
@@ -212,10 +136,14 @@ endmacro ()
 # USE: add_lua_module ( socket.http src/http.lua )
 # USE2: add_lua_module ( mime.core src/mime.c )
 # USE3: add_lua_module ( socket.core ${SRC_SOCKET} LINK ${LIB_SOCKET} )
+# USE4: add_lua_module ( ssl.context ssl.core ALL_IN_ONE src/context.c src/ssl.c )
+#   This form builds an "all-in-one" module (e.g. ssl.so or ssl.dll containing
+#   both modules ssl.context and ssl.core).  The CMake target name will be
+#   ssl_all_in_one.
 # Also sets variable _module_path (relative path where module typically
 # would be installed).
-macro ( add_lua_module _name)
-  _lua_module_helper ( FALSE ${_name} ${ARGN} )
+macro ( add_lua_module )
+  _lua_module_helper ( 0 ${ARGN} )
 endmacro ()
 
 
@@ -224,8 +152,8 @@ endmacro ()
 # USE: install_lua_module ( socket.http src/http.lua )
 # USE2: install_lua_module ( mime.core src/mime.c )
 # USE3: install_lua_module ( socket.core ${SRC_SOCKET} LINK ${LIB_SOCKET} )
-macro ( install_lua_module _name )
-  _lua_module_helper ( TRUE ${_name} ${ARGN} )
+macro ( install_lua_module )
+  _lua_module_helper ( 1 ${ARGN} )
 endmacro ()
 
 # Builds string representing Lua table mapping Lua modules names to file
