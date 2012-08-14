@@ -4,9 +4,9 @@ name = "lanes"
 version = "3.1.6"
 
 desc = "Lanes is a lightweight, native, lazy evaluating multithreading library for Lua 5.1."
-author = "Asko Kauppi"
+author = "Asko Kauppi, Benoit Germain"
 license = "MIT"
-url = "http://luaforge.net/projects/lanes"
+url = "https://github.com/LuaLanes/lanes"
 maintainer = "Peter Kapec"
 
 depends = {
