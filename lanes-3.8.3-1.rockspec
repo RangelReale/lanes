@@ -7,11 +7,11 @@
 
 package = "Lanes"
 
-version = "3.1.6-1"
+version = "3.8.3-1"
 
 source= {
 	url= "git://github.com/LuaLanes/lanes.git",
-	branch= "v3.1.6"
+	branch= "v3.8.3"
 }
 
 description = {
@@ -41,15 +41,26 @@ dependencies= {
 
 build = {
 	type = "builtin",
-	modules = 
+	platforms =
+	{
+		linux =
+		{
+			modules =
+			{
+				["lanes.core"] =
+				{
+					libraries = "pthread"
+				},
+			}
+		}
+	},
+	modules =
 	{
 		["lanes.core"] =
 		{
 			sources = { "src/lanes.c", "src/keeper.c", "src/tools.c", "src/threading.c"},
 			incdirs = { "src"},
 		},
-		lanes = "src/lanes.lua",
-		["lanes-keeper"] = "src/lanes-keeper.lua"
+		lanes = "src/lanes.lua"
 	}
 }
-

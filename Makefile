@@ -87,6 +87,9 @@ test:
 	$(MAKE) func_is_string
 	$(MAKE) atexit
 	$(MAKE) linda_perf
+	$(MAKE) rupval
+	$(MAKE) package
+	$(MAKE) pingpong
 
 basic: tests/basic.lua $(_TARGET_SO)
 	$(_PREFIX) $(LUA) $<
@@ -163,6 +166,15 @@ linda_perf: tests/linda_perf.lua $(_TARGET_SO)
 atexit: tests/atexit.lua $(_TARGET_SO)
 	$(_PREFIX) $(LUA) $<
 
+rupval: tests/rupval.lua $(_TARGET_SO)
+	$(_PREFIX) $(LUA) $<
+
+package: tests/package.lua $(_TARGET_SO)
+	$(_PREFIX) $(LUA) $<
+
+pingpong: tests/pingpong.lua $(_TARGET_SO)
+	$(_PREFIX) $(LUA) $<
+
 #---
 perftest-plain: tests/perftest.lua $(_TARGET_SO)
 	$(MAKE) _perftest ARGS="$< $(N) -plain"
@@ -197,11 +209,10 @@ LUA_SHAREDIR=$(DESTDIR)/share/lua/5.1
 #
 # AKa 17-Oct: changed to use 'install -m 644' and 'cp -p'
 #
-install: $(_TARGET_SO) src/lanes.lua src/lanes-keeper.lua
+install: $(_TARGET_SO) src/lanes.lua
 	mkdir -p $(LUA_LIBDIR) $(LUA_LIBDIR)/lanes $(LUA_SHAREDIR)
 	install -m 644 $(_TARGET_SO) $(LUA_LIBDIR)/lanes
 	cp -p src/lanes.lua $(LUA_SHAREDIR)
-	cp -p src/lanes-keeper.lua $(LUA_SHAREDIR)
 
 
 #--- Packaging ---
