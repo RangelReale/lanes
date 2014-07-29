@@ -1,10 +1,11 @@
 # Locate Lua library
 # This module defines
 #  LUA_EXECUTABLE, if found
-#  LUA_FOUND, if false, do not try to link to Lua 
+#  LUA_FOUND, if false, do not try to link to Lua
 #  LUA_LIBRARIES
 #  LUA_INCLUDE_DIR, where to find lua.h
 #  LUA_VERSION_STRING, the version of Lua found (since CMake 2.8.8)
+#  LUAJIT_VERSION_STRING, the version of LuaJIT, if using LuaJIT
 #
 # Note that the expected include convention is
 #  #include "lua.h"
@@ -72,7 +73,7 @@ FIND_PATH(LUA_INCLUDE_DIR lua.h
 )
 
 # Find the lua library
-FIND_LIBRARY(LUA_LIBRARY 
+FIND_LIBRARY(LUA_LIBRARY
   NAMES ${_POSSIBLE_LUA_LIBRARY}
   HINTS
   $ENV{LUA_DIR}
@@ -107,12 +108,21 @@ IF(LUA_INCLUDE_DIR AND EXISTS "${LUA_INCLUDE_DIR}/lua.h")
   UNSET(lua_version_str)
 ENDIF()
 
+# Check if it is LuaJIT
+IF(LUA_INCLUDE_DIR AND EXISTS "${LUA_INCLUDE_DIR}/luajit.h")
+  FILE(STRINGS "${LUA_INCLUDE_DIR}/luajit.h" luajit_version_str REGEX "^#define[ \t]+LUAJIT_VERSION[ \t]+\"LuaJIT .+\"")
+
+  STRING(REGEX REPLACE "^#define[ \t]+LUAJIT_VERSION[ \t]+\"LuaJIT ([^\"]+)\".*" "\\1" LUAJIT_VERSION_STRING "${luajit_version_str}")
+  UNSET(luajit_version_str)
+ENDIF()
+
+
 INCLUDE(FindPackageHandleStandardArgs)
-# handle the QUIETLY and REQUIRED arguments and set LUA_FOUND to TRUE if 
+# handle the QUIETLY and REQUIRED arguments and set LUA_FOUND to TRUE if
 # all listed variables are TRUE
 FIND_PACKAGE_HANDLE_STANDARD_ARGS(Lua
                                   REQUIRED_VARS LUA_LIBRARIES LUA_INCLUDE_DIR
                                   VERSION_VAR LUA_VERSION_STRING)
 
-MARK_AS_ADVANCED(LUA_INCLUDE_DIR LUA_LIBRARIES LUA_LIBRARY LUA_MATH_LIBRARY LUA_EXECUTABLE)
+MARK_AS_ADVANCED(LUA_INCLUDE_DIR LUA_LIBRARIES LUA_LIBRARY LUA_MATH_LIBRARY LUA_EXECUTABLE LUA_VERSION_STRING LUAJIT_VERSION_STRING)
 

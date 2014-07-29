@@ -3,7 +3,7 @@
 --
 
 local lanes = require "lanes"
-lanes.configure({protect_allocator = true})
+lanes.configure({protect_allocator = false})	-- true or nothing will crash LuaJIT
 
 local function ret(b)
     return b
