@@ -3,7 +3,7 @@
 --
 
 local lanes = require "lanes"
-lanes.configure()
+lanes.configure({protect_allocator = true})
 
 local function ret(b)
     return b
