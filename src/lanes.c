@@ -118,6 +118,11 @@ enum e_cancel_request
 	CANCEL_HARD  // user wants the lane to be interrupted (meaning code won't return from those functions) from inside linda:send/receive calls
 };
 
+enum e_lane_status {
+	NORMAL,         // normal master side state
+	KILLED          // issued an OS kill
+};
+
 // NOTE: values to be changed by either thread, during execution, without
 //       locking, are marked "volatile"
 //
@@ -162,10 +167,7 @@ struct s_lane
 	// lane status changes to DONE/ERROR_ST/CANCELLED.
 #endif // THREADWAIT_METHOD == THREADWAIT_CONDVAR
 
-	volatile enum { 
-		NORMAL,         // normal master side state
-		KILLED          // issued an OS kill
-	} mstatus;
+	volatile enum e_lane_status mstatus;
 	//
 	// M: sets to NORMAL, if issued a kill changes to KILLED
 	// S: not used
@@ -197,7 +199,7 @@ static inline struct s_lane* get_lane_from_registry( lua_State* L)
 	STACK_CHECK( L);
 	lua_pushlightuserdata( L, CANCEL_TEST_KEY);
 	lua_rawget( L, LUA_REGISTRYINDEX);
-	s = lua_touserdata( L, -1);     // lightuserdata (true 's_lane' pointer) / nil
+	s = (struct s_lane*)lua_touserdata( L, -1);     // lightuserdata (true 's_lane' pointer) / nil
 	lua_pop( L, 1);
 	STACK_END( L, 0);
 	return s;
@@ -1170,7 +1172,7 @@ static void* linda_id( lua_State* L, enum eDeepOp op_)
 		case eDO_delete:
 		{
 			struct s_Keeper* K;
-			struct s_Linda* linda = lua_touserdata( L, 1);
+			struct s_Linda* linda = (struct s_Linda*)lua_touserdata( L, 1);
 			ASSERT_L( linda);
 
 			/* Clean associated structures in the keeper state.
@@ -1958,7 +1960,7 @@ static void push_stack_trace( lua_State* L, int rc_, int stk_base_)
 LUAG_FUNC( set_debug_threadname)
 {
 	// C s_lane structure is a light userdata upvalue
-	struct s_lane* s = lua_touserdata( L, lua_upvalueindex( 1));
+	struct s_lane* s = (struct s_lane*)lua_touserdata( L, lua_upvalueindex( 1));
 	luaL_checktype( L, -1, LUA_TSTRING);                           // "name"
 	// store a hidden reference in the registry to make sure the string is kept around even if a lane decides to manually change the "decoda_name" global...
 	lua_pushlightuserdata( L, LG_set_debug_threadname);            // "name" lud
@@ -2361,7 +2363,7 @@ LUAG_FUNC( lane_new)
 
 	// 's' is allocated from heap, not Lua, since its life span may surpass the handle's (if free running thread)
 	//
-	ud = lua_newuserdata( L, sizeof( struct s_lane*));       // func libs cancelstep priority globals package required gc_cb lane
+	ud = (struct s_lane**)lua_newuserdata( L, sizeof( struct s_lane*));       // func libs cancelstep priority globals package required gc_cb lane
 	s = *ud = (struct s_lane*) malloc( sizeof( struct s_lane));
 	if( s == NULL)
 	{

@@ -154,7 +154,7 @@ struct s_Universe* get_universe( lua_State* L)
 	STACK_CHECK( L);
 	lua_pushlightuserdata( L, UNIVERSE_REGKEY);
 	lua_rawget( L, LUA_REGISTRYINDEX);
-	universe = lua_touserdata( L, -1); // NULL if nil
+	universe = (struct s_Universe*)lua_touserdata( L, -1); // NULL if nil
 	lua_pop( L, 1);
 	STACK_END( L, 0);
 	return universe;

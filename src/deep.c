@@ -285,7 +285,7 @@ char const* push_deep_proxy( struct s_Universe* U, lua_State* L, DEEP_PRELUDE* p
 	STACK_GROW( L, 7);
 	STACK_CHECK( L);
 
-	proxy = lua_newuserdata( L, sizeof( DEEP_PRELUDE*));                                               // DPC proxy
+	proxy = (DEEP_PRELUDE**)lua_newuserdata( L, sizeof( DEEP_PRELUDE*));                                               // DPC proxy
 	ASSERT_L( proxy);
 	*proxy = prelude;
 
@@ -439,7 +439,7 @@ char const* push_deep_proxy( struct s_Universe* U, lua_State* L, DEEP_PRELUDE* p
 int luaG_newdeepuserdata( lua_State* L, luaG_IdFunction idfunc)
 {
 	char const* errmsg;
-	DEEP_PRELUDE* prelude = DEEP_MALLOC( sizeof(DEEP_PRELUDE));
+	DEEP_PRELUDE* prelude = (DEEP_PRELUDE*)DEEP_MALLOC( sizeof(DEEP_PRELUDE));
 	if( prelude == NULL)
 	{
 		return luaL_error( L, "couldn't not allocate deep prelude: out of memory");

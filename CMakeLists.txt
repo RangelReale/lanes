@@ -4,10 +4,12 @@
 # For details see the COPYRIGHT file distributed with LuaDist.
 # Please note that the package source code is licensed under its own license.
 
-project( lanes C )
+project( lanes C CXX )
 cmake_minimum_required ( VERSION 2.8 )
 include ( cmake/dist.cmake )
 include ( lua )
+
+option ( LUA_CXX "Compile as CXX instead of C." OFF )
 
 find_package ( Lua REQUIRED )
 find_package ( Threads REQUIRED )
@@ -31,6 +33,9 @@ set(SRC_LANES src/lanes.c src/deep.c src/threading.c src/tools.c src/keeper.c sr
 
 # Install all files and documentation
 install_lua_module ( lanes.core ${SRC_LANES} LINK ${LIBS} )
+if (LUA_CXX)
+	SET_SOURCE_FILES_PROPERTIES( ${SRC_LANES} PROPERTIES LANGUAGE CXX )
+endif()
 
 install_lua_module( lanes src/lanes.lua )
 install_data( ABOUT BUGS CHANGES COPYRIGHT README TODO )
